@@ -1,51 +1,61 @@
 import time 
+
 from sensor_library import *
+
 from gpiozero import Servo
+from gpiozero import LED
 
 red_led = LED(6)
-sensor = Orientation_sensor()
+
+sensor = Orientation_Sensor()
 servo = Servo(8)
-rolling_avg = rolling_average()
+
 
 def main():
     while True:
+        global angles, raw_x, raw_y, raw_z
         angles = sensor.euler_angles()
         lin_accel = sensor.lin_acceleration()
         accel = sensor.accelerometer()
 
-        raw_x = angles[0]
-        raw_y = angles[1]
-        raw_z = angles[2]
-
-        print("raw_x: " raw_x)
-        print("raw_y: " raw_y)
-        print("raw_z: " raw_z)
-
-        # CALIBRATION TO SET THE LIMITS
-        # I WILL TEST OUT THE RATIOS
-        # calibration() this will return "default" coordinates 
-        # the limits for x, y, and z for both upper and below will be established in the FRONT END
-        # z ratio = 
-        # z limit under = default limit under * ratio
-        # z limit above = default limit above * ratio
+        time.sleep(0.5)
         
-        check_limit_x = within_limit_x(rolling_avg[0],)
-        check_limit_y = within_limit_y()
-        check_limit_z = within_limit_z()
+        avg = rolling_average()
 
-        if check_limit_x == False or limit_z == False:
+        check_limit_x = within_limit_x(avg[0], 200, 400)
+        check_limit_y = within_limit_y(avg[1], -0.1, -78)
+        check_limit_z = within_limit_z(avg[2], 0, 120)
+
+        if check_limit_x == False or check_limit_z == False:
+            print("ITS OFFFFFFFFFF FOR X AND Y")
             red_led.on()
-            
-        if check_limit_y == 1:
+        else:
+            red_led.off()
+
+        if check_limit_y == 0:
+            print("goooooooooooood")
+        elif check_limit_y == 1:
+            print("UNDEEERRRRR")
+            servo.max()
+        elif check_limit_y == 2:
+            print("OVVEEERR")
+            servo.min()
+
+        
+
 
 def rolling_average():
+
     i = 0
+
     x_avg = 0
     y_avg = 0
     z_avg = 0
+
     x_list = []
     y_list = []
     z_list = []
+
     for i in range(10):
         x_list.append(raw_x)
         y_list.append(raw_y)
@@ -64,9 +74,16 @@ def rolling_average():
         z_avg += z
     z_avg = z_avg/len(z_list)
 
-    coord_list = [x_avg, y_avg, z_avg]
-    return coord_list
 
+    if x_avg < 130:
+        x_avg = 360 + x_avg
+
+    if z_avg < 180:
+        z_avg = 60 + z_avg
+        
+    angles = [x_avg, y_avg, z_avg]
+    print("ROLLING AVERAGE: ", x_avg, y_avg, z_avg)
+    return angles
 
 
 def within_limit_x(x_angles, lower_limitx, upper_limitx):
@@ -74,26 +91,17 @@ def within_limit_x(x_angles, lower_limitx, upper_limitx):
         return True
     else:
         return False
-        
-def within_limit_y(y_angles, lower_limit, upper_limit):
-    if lower_limity < y_angles < upper_limity:
+
+def within_limit_z(z_angles, lower_limitz, upper_limitz):
+    if lower_limitz < z_angles < upper_limitz:
         return True
     else:
         return False
 
-def within_limit_z(z_angles, lower_limitz, upper_limitz):
-    if lower_limitz < z_angles < upper_limitz:
+def within_limit_y(y_angles, lower_limity, upper_limity):
+    if lower_limity < y_angles < upper_limity:
         return 0
-    elif z_angles < lower_limitz:
+    elif y_angles < lower_limity:
         return 1
-    elif z_angles > upper_limitz:
+    elif y_angles > upper_limity:
         return 2
-
-
-
-# We have rolling input
-# Now we need limits on the input 
-# Breaking the limits wiill result in:
-# 1: LED on
-# 2: SERVO - max direction maybe not all the way
-# 3: SERVO - min direction maybe not all the way
