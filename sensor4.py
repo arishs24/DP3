@@ -240,3 +240,5 @@ root.mainloop()
 # ./tensorflow/lite/tools/pip_package/build_pip_package.sh
 # pip install tensorflow/lite/tools/pip_package/gen/tflite_pip-2.5.0-py3-none-any.whl
 
+# wget https://github.com/google-coral/edgetpu/raw/master/libedgetpu/direct/tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl
+# pip install tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl
