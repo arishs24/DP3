@@ -5,7 +5,7 @@ from gpiozero import Servo, LED, Motor
 # 🔹 GPIO Setup
 red_led = LED(6)  # Alert LED
 servo = Servo(8)  # Servo motor on GPIO8
-motor = Motor(forward=17, backward=27)  # Motor Driver Control
+motor = Motor(forward=17, backward=27)  # Motor Control
 
 # 🔹 Initialize Sensor
 sensor = Orientation_Sensor()
@@ -37,6 +37,7 @@ def calibrate_sensor():
     calibrated_z = sum(z_list) / len(z_list)
 
     print(f"✅ Calibration Complete: X={calibrated_x:.2f}, Y={calibrated_y:.2f}, Z={calibrated_z:.2f}")
+    print("🎯 Starting Posture Tracking...")
 
 def main():
     """
@@ -86,15 +87,15 @@ def main():
             # 6️⃣ Servo & Motor Control for Resistance Adjustment
             if check_limit_y == 0:
                 print("✅ Good Posture")
-                servo.value = 0  # Neutral position
+                servo.mid()  # Set to neutral position
                 motor.stop()  # No resistance change
             elif check_limit_y == 1:
                 print("⬇️ UNDER! Increasing Resistance...")
-                servo.value = -0.6  # Gradual increase
+                servo.max()  # Move servo to max resistance
                 motor.forward(0.5)  # Increase motor tension
             elif check_limit_y == 2:
                 print("⬆️ OVER! Decreasing Resistance...")
-                servo.value = 0.6  # Gradual decrease
+                servo.min()  # Move servo to minimum resistance
                 motor.backward(0.5)  # Decrease motor tension
 
             # 7️⃣ Display Data for Debugging
@@ -107,7 +108,7 @@ def main():
 
 def rolling_average(x_list, y_list, z_list):
     """
-    Computes rolling averages for X, Y, and Z sensor data.
+    Computes rolling averages for X, Y, and Z angles.
     """
     x_avg = sum(x_list) / len(x_list)
     y_avg = sum(y_list) / len(y_list)
