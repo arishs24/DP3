@@ -5,7 +5,7 @@ from gpiozero import Servo, LED, Motor
 # 🔹 GPIO Setup
 red_led = LED(6)  # Alert LED
 servo = Servo(8)  # Servo motor on GPIO8
-motor = Motor(forward=17, backward=27)  # Motor Control
+motor = Motor(forward=17, backward=27)  # Motor Control (L298N Driver)
 
 # 🔹 Initialize Sensor
 sensor = Orientation_Sensor()
@@ -88,18 +88,22 @@ def main():
             if check_limit_y == 0:
                 print("✅ Good Posture")
                 servo.mid()  # Set to neutral position
-                motor.stop()  # No resistance change
+                motor.stop()  # Stop motor
             elif check_limit_y == 1:
                 print("⬇️ UNDER! Increasing Resistance...")
                 servo.max()  # Move servo to max resistance
-                motor.forward(0.5)  # Increase motor tension
+                motor.forward(0.7)  # Increase motor tension (PWM speed 70%)
+                time.sleep(0.5)  # Delay to let motor adjust
+                motor.stop()  # Stop after adjustment
             elif check_limit_y == 2:
                 print("⬆️ OVER! Decreasing Resistance...")
                 servo.min()  # Move servo to minimum resistance
-                motor.backward(0.5)  # Decrease motor tension
+                motor.backward(0.7)  # Decrease motor tension (PWM speed 70%)
+                time.sleep(0.5)  # Delay to let motor adjust
+                motor.stop()  # Stop after adjustment
 
             # 7️⃣ Display Data for Debugging
-            print(f"CALIBRATED ANGLES -> X: {avg_x:.2f}, Y: {avg_y:.2f}, Z: {avg_z:.2f}")
+            print(f"CALIBRATED ANGLES -> X: {avg_x:.2f}, Y: {avg_y:.2f}, Z={avg_z:.2f}")
 
         except Exception as e:
             print(f"⚠️ Sensor Read Error: {e}")
