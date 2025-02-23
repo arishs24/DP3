@@ -22,6 +22,19 @@ posture_status = "Calibrating..."
 angles_text = "X: 0.00, Y: 0.00, Z: 0.00"
 is_tracking = False
 
+def rolling_average(x_list, y_list, z_list):
+    """
+    Computes rolling averages for X, Y, and Z angles.
+    """
+    if len(x_list) == 0 or len(y_list) == 0 or len(z_list) == 0:
+        return 0, 0, 0  # Prevent division errors
+
+    x_avg = sum(x_list) / len(x_list)
+    y_avg = sum(y_list) / len(y_list)
+    z_avg = sum(z_list) / len(z_list)
+
+    return x_avg, y_avg, z_avg
+
 def calibrate_sensor():
     """
     Captures initial sensor values as the "neutral" posture reference.
