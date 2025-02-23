@@ -6,7 +6,6 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-import tensorflow as tf
 from PIL import Image, ImageTk
 from pydicom import dcmread
 from sensor_library import *  # Your existing sensor module
@@ -26,14 +25,6 @@ injury_type = ""
 severity_level = ""
 mri_file_path = ""
 
-# 🔹 Calibration Values
-calibrated_x = 0
-calibrated_y = 0
-calibrated_z = 0
-
-# 🔹 MRI Analysis Model (Pre-trained Model - Modify with Your Own)
-mri_model = tf.keras.models.load_model("mri_model.h5")  # Load pre-trained MRI model
-
 # Live Graph Data
 x_vals, y_vals = [], []  # Stores time & Y angle values for live graph
 
@@ -46,17 +37,17 @@ def rolling_average(x_list, y_list, z_list):
 
 
 def upload_mri():
-    """Opens file dialog to upload MRI and runs analysis."""
+    """Opens file dialog to upload MRI and displays it."""
     global mri_file_path
     file_path = filedialog.askopenfilename(filetypes=[("MRI Scans", "*.jpg;*.png;*.dcm;*.jpeg")])
     if file_path:
         mri_file_path = file_path
         mri_label.config(text=f"📂 MRI Uploaded: {file_path.split('/')[-1]}")
-        process_mri(file_path)
+        display_mri(file_path)
 
 
-def process_mri(file_path):
-    """Loads and processes MRI, then runs it through a pre-trained model."""
+def display_mri(file_path):
+    """Loads and displays MRI image in GUI."""
     global mri_image
     try:
         if file_path.endswith(".dcm"):
@@ -65,27 +56,16 @@ def process_mri(file_path):
         else:
             img = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
 
-        img = cv2.resize(img, (128, 128))  # Resize for model
-        img = img / 255.0  # Normalize
+        img = cv2.resize(img, (150, 150))  # Resize for display
 
-        # Convert for TensorFlow model
-        img_tensor = np.expand_dims(img, axis=[0, -1])
-
-        # Predict using the model
-        prediction = mri_model.predict(img_tensor)[0][0]  # Get probability of abnormality
-        result_text = "🔴 Abnormal MRI Detected" if prediction > 0.5 else "🟢 Normal MRI"
-
-        # Display Processed MRI
-        img = Image.fromarray((img * 255).astype(np.uint8))  # Convert to displayable image
-        img = img.resize((150, 150))
-        mri_image = ImageTk.PhotoImage(img)
-        mri_canvas.create_image(0, 0, anchor=tk.NW, image=mri_image)
-
-        # Update Label
-        analysis_label.config(text=result_text, fg="red" if prediction > 0.5 else "green")
+        # Convert to Tkinter Image
+        img = Image.fromarray(img)
+        img = ImageTk.PhotoImage(img)
+        mri_canvas.create_image(0, 0, anchor=tk.NW, image=img)
+        mri_canvas.image = img  # Prevent garbage collection
 
     except Exception as e:
-        analysis_label.config(text=f"Error: {e}", fg="red")
+        mri_label.config(text=f"⚠️ Error: {e}", fg="red")
 
 
 def submit_user_info():
@@ -219,8 +199,17 @@ mri_label = tk.Label(user_frame, text="No MRI Uploaded", fg="white", bg="#282c34
 mri_label.pack()
 tk.Button(user_frame, text="📂 Upload MRI", command=upload_mri).pack()
 
-analysis_label = tk.Label(user_frame, text="", fg="white", bg="#282c34")
-analysis_label.pack()
+# Tracking Page
+tracking_frame = tk.Frame(root, bg="#282c34")
+
+status_label = tk.Label(tracking_frame, text="Waiting...", font=("Arial", 14), fg="white", bg="#282c34")
+status_label.pack(pady=5)
+
+angles_label = tk.Label(tracking_frame, text="X: 0.00, Y: 0.00, Z: 0.00", font=("Arial", 12), fg="white", bg="#282c34")
+angles_label.pack(pady=5)
+
+tk.Button(tracking_frame, text="▶ Start Tracking", command=start_tracking).pack(pady=5)
+tk.Button(tracking_frame, text="⏹ Stop Tracking", command=stop_tracking).pack(pady=5)
 
 # Live Graph
 fig, ax = plt.subplots()
@@ -228,17 +217,3 @@ ani = FuncAnimation(fig, update_graph, interval=1000)
 plt.show(block=False)
 
 root.mainloop()
-# wget https://github.com/google-coral/edgetpu/raw/master/libedgetpu/direct/tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl
-#pip install tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl
-
-# #sudo apt update && sudo apt upgrade -y
-# sudo apt install python3-dev python3-pip
-# pip install numpy
-# git clone https://github.com/tensorflow/tensorflow.git
-# cd tensorflow
-# git checkout v2.5.0
-# ./tensorflow/lite/tools/pip_package/build_pip_package.sh
-# pip install tensorflow/lite/tools/pip_package/gen/tflite_pip-2.5.0-py3-none-any.whl
-
-# wget https://github.com/google-coral/edgetpu/raw/master/libedgetpu/direct/tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl
-# pip install tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl
