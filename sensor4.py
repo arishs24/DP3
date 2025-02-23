@@ -3,7 +3,6 @@ import threading
 import tkinter as tk
 from tkinter import filedialog
 import cv2
-import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from PIL import Image, ImageTk
@@ -30,10 +29,13 @@ x_vals, y_vals = [], []  # Stores time & Y angle values for live graph
 
 
 def rolling_average(x_list, y_list, z_list):
-    """Computes rolling averages for X, Y, and Z angles."""
+    """Computes rolling averages for X, Y, and Z angles without NumPy."""
     if not x_list or not y_list or not z_list:
-        return 0, 0, 0
-    return sum(x_list) / len(x_list), sum(y_list) / len(y_list), sum(z_list) / len(z_list)
+        return 0, 0, 0  # Prevent division errors
+    x_avg = sum(x_list) / len(x_list)
+    y_avg = sum(y_list) / len(y_list)
+    z_avg = sum(z_list) / len(z_list)
+    return x_avg, y_avg, z_avg
 
 
 def upload_mri():
