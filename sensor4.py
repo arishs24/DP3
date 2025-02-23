@@ -1,7 +1,8 @@
 import time
 import threading
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, scrolledtext
+import fitz  # PyMuPDF for PDF handling
 import cv2
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -23,13 +24,14 @@ user_name = ""
 injury_type = ""
 severity_level = ""
 mri_file_path = ""
+pdf_file_path = ""
 
 # Live Graph Data
 x_vals, y_vals = [], []  # Stores time & Y angle values for live graph
 
 
 def rolling_average(x_list, y_list, z_list):
-    """Computes rolling averages for X, Y, and Z angles without NumPy."""
+    """Computes rolling averages for X, Y, and Z angles."""
     if not x_list or not y_list or not z_list:
         return 0, 0, 0  # Prevent division errors
     x_avg = sum(x_list) / len(x_list)
@@ -68,6 +70,32 @@ def display_mri(file_path):
 
     except Exception as e:
         mri_label.config(text=f"⚠️ Error: {e}", fg="red")
+
+
+def upload_pdf():
+    """Allows user to upload a PDF (MRI report) and displays its text."""
+    global pdf_file_path
+    file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
+    if file_path:
+        pdf_file_path = file_path
+        pdf_label.config(text=f"📂 PDF Uploaded: {file_path.split('/')[-1]}")
+        display_pdf_text(file_path)
+
+
+def display_pdf_text(file_path):
+    """Extracts and displays text from a PDF report."""
+    try:
+        doc = fitz.open(file_path)
+        text = "\n".join([page.get_text() for page in doc])
+
+        # Show PDF text inside the UI
+        pdf_text_box.config(state=tk.NORMAL)
+        pdf_text_box.delete(1.0, tk.END)  # Clear previous text
+        pdf_text_box.insert(tk.END, text)
+        pdf_text_box.config(state=tk.DISABLED)  # Make read-only
+
+    except Exception as e:
+        pdf_label.config(text=f"⚠️ Error: {e}", fg="red")
 
 
 def submit_user_info():
@@ -120,58 +148,6 @@ def update_ui():
     root.update_idletasks()
 
 
-def tracking_loop():
-    """Runs posture tracking & updates graph."""
-    global posture_status, angles_text, is_tracking
-    x_list, y_list, z_list = [], [], []
-
-    while is_tracking:
-        try:
-            angles = sensor.euler_angles()
-            raw_x, raw_y, raw_z = angles
-
-            adj_x = raw_x - calibrated_x
-            adj_y = raw_y - calibrated_y
-            adj_z = raw_z - calibrated_z
-
-            x_list.append(adj_x)
-            y_list.append(adj_y)
-            z_list.append(adj_z)
-
-            if len(x_list) > 10:
-                x_list.pop(0)
-                y_list.pop(0)
-                z_list.pop(0)
-
-            avg_x, avg_y, avg_z = rolling_average(x_list, y_list, z_list)
-
-            x_vals.append(time.time())  # Time for graph
-            y_vals.append(avg_y)
-
-            angles_text = f"X: {avg_x:.2f}, Y: {avg_y:.2f}, Z: {avg_z:.2f}"
-            posture_status = "✅ Good Posture" if -10 < avg_y < 10 else "🚨 Bad Posture"
-
-            update_ui()
-
-        except Exception as e:
-            print(f"⚠️ Sensor Read Error: {e}")
-
-        time.sleep(0.5)
-
-
-def start_tracking():
-    """Starts tracking in a separate thread."""
-    global is_tracking
-    is_tracking = True
-    threading.Thread(target=tracking_loop, daemon=True).start()
-
-
-def stop_tracking():
-    """Stops tracking."""
-    global is_tracking
-    is_tracking = False
-
-
 def update_graph(frame):
     """Updates the graph in real-time."""
     ax.clear()
@@ -199,7 +175,16 @@ mri_canvas = tk.Canvas(user_frame, width=150, height=150)
 mri_canvas.pack()
 mri_label = tk.Label(user_frame, text="No MRI Uploaded", fg="white", bg="#282c34")
 mri_label.pack()
-tk.Button(user_frame, text="📂 Upload MRI", command=upload_mri).pack()
+tk.Button(user_frame, text="📂 Upload MRI Image", command=upload_mri).pack()
+
+# PDF Upload (MRI Report)
+pdf_label = tk.Label(user_frame, text="No PDF Uploaded", fg="white", bg="#282c34")
+pdf_label.pack()
+tk.Button(user_frame, text="📂 Upload MRI Report (PDF)", command=upload_pdf).pack()
+
+# PDF Text Display Box
+pdf_text_box = scrolledtext.ScrolledText(user_frame, wrap=tk.WORD, width=60, height=6, state=tk.DISABLED)
+pdf_text_box.pack(pady=5)
 
 # Tracking Page
 tracking_frame = tk.Frame(root, bg="#282c34")
@@ -209,9 +194,6 @@ status_label.pack(pady=5)
 
 angles_label = tk.Label(tracking_frame, text="X: 0.00, Y: 0.00, Z: 0.00", font=("Arial", 12), fg="white", bg="#282c34")
 angles_label.pack(pady=5)
-
-tk.Button(tracking_frame, text="▶ Start Tracking", command=start_tracking).pack(pady=5)
-tk.Button(tracking_frame, text="⏹ Stop Tracking", command=stop_tracking).pack(pady=5)
 
 # Live Graph
 fig, ax = plt.subplots()
