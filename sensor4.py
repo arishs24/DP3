@@ -228,3 +228,15 @@ ani = FuncAnimation(fig, update_graph, interval=1000)
 plt.show(block=False)
 
 root.mainloop()
+# wget https://github.com/google-coral/edgetpu/raw/master/libedgetpu/direct/tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl
+#pip install tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl
+
+# #sudo apt update && sudo apt upgrade -y
+# sudo apt install python3-dev python3-pip
+# pip install numpy
+# git clone https://github.com/tensorflow/tensorflow.git
+# cd tensorflow
+# git checkout v2.5.0
+# ./tensorflow/lite/tools/pip_package/build_pip_package.sh
+# pip install tensorflow/lite/tools/pip_package/gen/tflite_pip-2.5.0-py3-none-any.whl
+
