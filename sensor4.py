@@ -21,8 +21,8 @@ calibrated_x, calibrated_y, calibrated_z = 0, 0, 0
 is_tracking = False
 user_strength = 0
 
-# Live Graph Data
-x_vals, y_vals = [], []  # Stores time & Y angle values for live graph
+# 🔹 Tkinter Main Thread Variable
+posture_status = None
 
 
 def rolling_average(x_list, y_list, z_list):
@@ -30,6 +30,30 @@ def rolling_average(x_list, y_list, z_list):
     if not x_list or not y_list or not z_list:
         return 0, 0, 0  # Prevent division errors
     return sum(x_list) / len(x_list), sum(y_list) / len(y_list), sum(z_list) / len(z_list)
+
+
+def upload_pdf():
+    """Allows user to upload a PDF (MRI report) and displays its text."""
+    file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
+    if file_path:
+        pdf_label.config(text=f"📂 PDF Uploaded: {file_path.split('/')[-1]}")
+        display_pdf_text(file_path)
+
+
+def display_pdf_text(file_path):
+    """Extracts and displays text from a PDF report."""
+    try:
+        doc = fitz.open(file_path)
+        text = "\n".join([page.get_text() for page in doc])
+
+        # Update text in the main thread
+        root.after(0, lambda: pdf_text_box.config(state=tk.NORMAL))
+        root.after(0, lambda: pdf_text_box.delete(1.0, tk.END))
+        root.after(0, lambda: pdf_text_box.insert(tk.END, text))
+        root.after(0, lambda: pdf_text_box.config(state=tk.DISABLED))
+
+    except Exception as e:
+        pdf_label.config(text=f"⚠️ Error: {e}", fg="red")
 
 
 def calibrate_sensor():
@@ -41,7 +65,8 @@ def run_calibration():
     """Captures sensor baseline and completes calibration."""
     global calibrated_x, calibrated_y, calibrated_z
 
-    posture_status.set("📏 Calibrating... Hold still!")
+    # Ensure UI updates happen on the main thread
+    root.after(0, lambda: posture_status.set("📏 Calibrating... Hold still!"))
     time.sleep(1)  # Pause before starting
 
     x_list, y_list, z_list = [], [], []
@@ -58,7 +83,7 @@ def run_calibration():
         time.sleep(0.5)
 
     if not x_list or not y_list or not z_list:
-        posture_status.set("❌ Calibration Failed: Check Sensor!")
+        root.after(0, lambda: posture_status.set("❌ Calibration Failed: Check Sensor!"))
         return
 
     # Compute stable average values as the reference
@@ -66,49 +91,13 @@ def run_calibration():
     calibrated_y = sum(y_list) / len(y_list)
     calibrated_z = sum(z_list) / len(z_list)
 
-    posture_status.set("✅ Calibration Complete! Starting Tracking...")
+    root.after(0, lambda: posture_status.set("✅ Calibration Complete! Starting Tracking..."))
     start_tracking()  # Auto-start tracking after calibration
-
-
-def estimate_max_bicep_curl():
-    """Estimates max bicep curl weight based on user input."""
-    try:
-        weight = int(weight_entry.get())
-        age = int(age_entry.get())
-        gender = gender_var.get()
-        activity_level = activity_var.get()
-
-        if gender == "Male":
-            base_strength = 0.5 * weight  # Male average: 50% of body weight
-        else:
-            base_strength = 0.35 * weight  # Female average: 35%
-
-        # Adjust for age
-        if age > 40:
-            base_strength *= 0.85  # Reduce 15% for older users
-        elif age < 18:
-            base_strength *= 0.9  # Reduce 10% for teens
-
-        # Adjust for activity level
-        if activity_level == "Low":
-            base_strength *= 0.8  # Reduce 20%
-        elif activity_level == "High":
-            base_strength *= 1.2  # Increase 20%
-
-        return round(base_strength, 1)
-    except ValueError:
-        return 0  # Default value if invalid input
 
 
 def tracking_loop():
     """Tracks sensor values and adjusts motor resistance in real-time."""
     global is_tracking, user_strength
-
-    user_strength = estimate_max_bicep_curl()
-    if user_strength == 0:
-        return  # Don't start tracking if strength estimation failed
-
-    x_list, y_list, z_list = [], [], []
 
     while is_tracking:
         try:
@@ -120,31 +109,16 @@ def tracking_loop():
             adj_y = angles[1] - calibrated_y
             adj_z = angles[2] - calibrated_z
 
-            x_list.append(adj_x)
-            y_list.append(adj_y)
-            z_list.append(adj_z)
-
-            if len(x_list) > 10:
-                x_list.pop(0)
-                y_list.pop(0)
-                z_list.pop(0)
-
-            avg_x, avg_y, avg_z = rolling_average(x_list, y_list, z_list)
-
-            x_vals.append(time.time())  # Time for graph
-            y_vals.append(avg_y)
-
             # Determine posture status
-            if -10 < avg_y < 10:
-                posture_status.set("✅ Good Posture")
+            if -10 < adj_y < 10:
+                root.after(0, lambda: posture_status.set("✅ Good Posture"))
                 resistance = user_strength / 50  # Scale between 0-1
             else:
-                posture_status.set("🚨 Bad Posture - Adjusting Resistance!")
+                root.after(0, lambda: posture_status.set("🚨 Bad Posture - Adjusting Resistance!"))
                 resistance = (user_strength / 50) * 1.2  # Increase resistance for correction
 
             # Apply resistance to motor
             motor.forward(resistance)
-            update_ui()
 
         except Exception as e:
             print(f"⚠️ Sensor Read Error: {e}")
@@ -166,11 +140,6 @@ def stop_tracking():
     motor.stop()
 
 
-def update_ui():
-    """Updates the GUI labels with the latest sensor data."""
-    root.update_idletasks()
-
-
 # GUI Setup
 root = tk.Tk()
 root.title("Smart Rehab Band UI")
@@ -185,28 +154,6 @@ user_frame = tk.Frame(root, bg="#282c34")
 user_frame.pack()
 
 tk.Label(user_frame, text="📝 Patient Information", font=("Arial", 16), fg="white", bg="#282c34").pack()
-
-tk.Label(user_frame, text="Name:", fg="white", bg="#282c34").pack()
-name_entry = tk.Entry(user_frame)
-name_entry.pack()
-
-tk.Label(user_frame, text="Age:", fg="white", bg="#282c34").pack()
-age_entry = tk.Entry(user_frame)
-age_entry.pack()
-
-tk.Label(user_frame, text="Weight (lbs):", fg="white", bg="#282c34").pack()
-weight_entry = tk.Entry(user_frame)
-weight_entry.pack()
-
-tk.Label(user_frame, text="Gender:", fg="white", bg="#282c34").pack()
-gender_var = tk.StringVar(value="Male")
-gender_menu = tk.OptionMenu(user_frame, gender_var, "Male", "Female")
-gender_menu.pack()
-
-tk.Label(user_frame, text="Activity Level:", fg="white", bg="#282c34").pack()
-activity_var = tk.StringVar(value="Medium")
-activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
-activity_menu.pack()
 
 tk.Button(user_frame, text="✅ Submit & Calibrate", command=calibrate_sensor).pack(pady=10)
 
