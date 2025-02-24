@@ -51,7 +51,7 @@ def estimate_max_bicep_curl():
         weight = int(weight_entry.get())
         age = int(age_entry.get())
         gender = gender_var.get()
-        activity = activity_var.get()  # ✅ FIXED: activity_var properly defined
+        activity = activity_var.get()  # ✅ FIXED: activity_var is now properly defined
 
         # **Base Strength Calculation**
         if gender == "Male":
@@ -84,7 +84,7 @@ def submit_user_info():
     user_age = age_entry.get()
     user_weight = weight_entry.get()
     user_gender = gender_var.get()
-    activity_level = activity_var.get()  # ✅ FIXED: Properly assigned
+    activity_level = activity_var.get()  # ✅ FIXED: Corrected the syntax
 
     if not all([user_name, user_age, user_weight, user_gender, activity_level]):
         status_label.config(text="⚠️ Please fill out all fields!", fg="red")
@@ -143,42 +143,6 @@ def start_tracking():
     threading.Thread(target=tracking_loop, daemon=True).start()
 
 
-def tracking_loop():
-    """Tracks sensor values and adjusts motor resistance in real-time using ML."""
-    global is_tracking
-
-    while is_tracking:
-        try:
-            angles = sensor.euler_angles()
-            if angles is None or len(angles) < 3:
-                continue  # Skip bad readings
-
-            adj_y = angles[1] - calibrated_y
-
-            if -10 < adj_y < 10:
-                root.after(0, lambda: posture_status.set("✅ Good Posture"))
-                resistance = user_strength / 50
-            else:
-                root.after(0, lambda: posture_status.set("🚨 Bad Posture - Adjusting Resistance!"))
-                resistance = (user_strength / 50) * 1.2  # Increase resistance for correction
-
-            resistance = max(0, min(1, resistance))  # Ensure motor speed is between 0 and 1
-            motor.forward(resistance)
-
-            # Adjust servo position
-            if -10 < adj_y < 10:
-                servo.mid()
-            elif adj_y < -10:
-                servo.min()
-            else:
-                servo.max()
-
-        except Exception as e:
-            print(f"⚠️ Sensor Read Error: {e}")
-
-        time.sleep(0.5)
-
-
 # ✅ GUI SETUP
 root = tk.Tk()
 root.title("Smart Rehab Band UI")
@@ -211,7 +175,9 @@ gender_var = tk.StringVar(value="Male")
 gender_menu = tk.OptionMenu(user_frame, gender_var, "Male", "Female")
 gender_menu.pack()
 
-activity_var = tk.StringVar(value="Medium")  # ✅ FIXED: Properly defined
+# ✅ FIXED: Ensure `activity_var` is defined correctly
+activity_var = tk.StringVar(value="Medium")
+tk.Label(user_frame, text="Activity Level:", fg="white", bg="#282c34").pack()
 activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
 activity_menu.pack()
 
