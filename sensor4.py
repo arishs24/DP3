@@ -136,6 +136,9 @@ def tracking_loop():
                 root.after(0, lambda: posture_status.set("🚨 Bad Posture - Adjusting Resistance!"))
                 resistance = (user_strength / 50) * 1.2  # Increase resistance for correction
 
+            # **Ensure motor speed is between 0 and 1**
+            resistance = max(0, min(1, resistance))  
+
             # Apply resistance to motor
             motor.forward(resistance)
 
