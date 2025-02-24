@@ -29,47 +29,13 @@ sensor = Orientation_Sensor()
 calibrated_x, calibrated_y, calibrated_z = 0, 0, 0
 is_tracking = False
 user_strength = 0
-user_name, user_age, user_weight, user_gender = "", 0, 0, ""
-activity_level = ""
+user_name, user_age, user_weight, user_gender, activity_level = "", 0, 0, "", ""
 
 # 🔹 Tkinter Main Thread Variable
 posture_status = None
 
 
 ### **✅ Fix: Ensure All Functions Are Defined First**
-def calibrate_sensor():
-    """Captures sensor baseline and completes calibration."""
-    global calibrated_x, calibrated_y, calibrated_z
-
-    root.after(0, lambda: posture_status.set("📏 Calibrating... Hold still!"))
-    time.sleep(1)  # Pause before starting
-
-    x_list, y_list, z_list = [], [], []
-
-    for _ in range(10):  # Collect stable baseline data
-        angles = sensor.euler_angles()
-
-        if angles is None or len(angles) < 3:
-            continue  # Skip bad readings
-
-        x_list.append(angles[0])
-        y_list.append(angles[1])
-        z_list.append(angles[2])
-        time.sleep(0.5)
-
-    if not x_list or not y_list or not z_list:
-        root.after(0, lambda: posture_status.set("❌ Calibration Failed: Check Sensor!"))
-        return
-
-    # Compute stable average values as the reference
-    calibrated_x = sum(x_list) / len(x_list)
-    calibrated_y = sum(y_list) / len(y_list)
-    calibrated_z = sum(z_list) / len(z_list)
-
-    root.after(0, lambda: posture_status.set("✅ Calibration Complete! Starting Tracking..."))
-    start_tracking()  # Auto-start tracking after calibration
-
-
 def stop_tracking():
     """Stops tracking and resets servo & motor."""
     global is_tracking
@@ -85,7 +51,7 @@ def estimate_max_bicep_curl():
         weight = int(weight_entry.get())
         age = int(age_entry.get())
         gender = gender_var.get()
-        activity = activity_var.get()
+        activity = activity_var.get()  # ✅ FIXED: activity_var properly defined
 
         # **Base Strength Calculation**
         if gender == "Male":
@@ -118,7 +84,7 @@ def submit_user_info():
     user_age = age_entry.get()
     user_weight = weight_entry.get()
     user_gender = gender_var.get()
-    activity_level = activity_var.get()
+    activity_level = activity_var.get()  # ✅ FIXED: Properly assigned
 
     if not all([user_name, user_age, user_weight, user_gender, activity_level]):
         status_label.config(text="⚠️ Please fill out all fields!", fg="red")
@@ -135,6 +101,39 @@ def submit_user_info():
     user_frame.pack_forget()
     tracking_frame.pack()
     threading.Thread(target=calibrate_sensor, daemon=True).start()
+
+
+def calibrate_sensor():
+    """Captures sensor baseline and completes calibration."""
+    global calibrated_x, calibrated_y, calibrated_z
+
+    root.after(0, lambda: posture_status.set("📏 Calibrating... Hold still!"))
+    time.sleep(1)  # Pause before starting
+
+    x_list, y_list, z_list = [], [], []
+
+    for _ in range(10):  # Collect stable baseline data
+        angles = sensor.euler_angles()
+
+        if angles is None or len(angles) < 3:
+            continue  # Skip bad readings
+
+        x_list.append(angles[0])
+        y_list.append(angles[1])
+        z_list.append(angles[2])
+        time.sleep(0.5)
+
+    if not x_list or not y_list or not z_list:
+        root.after(0, lambda: posture_status.set("❌ Calibration Failed: Check Sensor!"))
+        return
+
+    # Compute stable average values as the reference
+    calibrated_x = sum(x_list) / len(x_list)
+    calibrated_y = sum(y_list) / len(y_list)
+    calibrated_z = sum(z_list) / len(z_list)
+
+    root.after(0, lambda: posture_status.set("✅ Calibration Complete! Starting Tracking..."))
+    start_tracking()  # Auto-start tracking after calibration
 
 
 def start_tracking():
@@ -212,9 +211,11 @@ gender_var = tk.StringVar(value="Male")
 gender_menu = tk.OptionMenu(user_frame, gender_var, "Male", "Female")
 gender_menu.pack()
 
+activity_var = tk.StringVar(value="Medium")  # ✅ FIXED: Properly defined
+activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
+activity_menu.pack()
+
 tk.Button(user_frame, text="✅ Submit & Calibrate", command=submit_user_info).pack(pady=10)
-strength_label = tk.Label(user_frame, text="💪 Estimated Max Bicep Curl: N/A", fg="white", bg="#282c34")
-strength_label.pack()
 
 # **Tracking Page**
 tracking_frame = tk.Frame(root, bg="#282c34")
