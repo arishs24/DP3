@@ -143,6 +143,42 @@ def start_tracking():
     threading.Thread(target=tracking_loop, daemon=True).start()
 
 
+def tracking_loop():
+    """Tracks sensor values and adjusts motor resistance in real-time using ML."""
+    global is_tracking
+
+    while is_tracking:
+        try:
+            angles = sensor.euler_angles()
+            if angles is None or len(angles) < 3:
+                continue  # Skip bad readings
+
+            adj_y = angles[1] - calibrated_y
+
+            if -10 < adj_y < 10:
+                root.after(0, lambda: posture_status.set("✅ Good Posture"))
+                resistance = user_strength / 50
+            else:
+                root.after(0, lambda: posture_status.set("🚨 Bad Posture - Adjusting Resistance!"))
+                resistance = (user_strength / 50) * 1.2  # Increase resistance for correction
+
+            resistance = max(0, min(1, resistance))  # Ensure motor speed is between 0 and 1
+            motor.forward(resistance)
+
+            # Adjust servo position
+            if -10 < adj_y < 10:
+                servo.mid()
+            elif adj_y < -10:
+                servo.min()
+            else:
+                servo.max()
+
+        except Exception as e:
+            print(f"⚠️ Sensor Read Error: {e}")
+
+        time.sleep(0.5)
+
+
 # ✅ GUI SETUP
 root = tk.Tk()
 root.title("Smart Rehab Band UI")
@@ -175,7 +211,6 @@ gender_var = tk.StringVar(value="Male")
 gender_menu = tk.OptionMenu(user_frame, gender_var, "Male", "Female")
 gender_menu.pack()
 
-# ✅ FIXED: Ensure `activity_var` is defined correctly
 activity_var = tk.StringVar(value="Medium")
 tk.Label(user_frame, text="Activity Level:", fg="white", bg="#282c34").pack()
 activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
@@ -183,11 +218,9 @@ activity_menu.pack()
 
 tk.Button(user_frame, text="✅ Submit & Calibrate", command=submit_user_info).pack(pady=10)
 
-# ✅ FIXED: Ensure `strength_label` is defined before using it
 strength_label = tk.Label(user_frame, text="💪 Estimated Max Bicep Curl: N/A", fg="white", bg="#282c34")
 strength_label.pack()
 
-# **Tracking Page**
 tracking_frame = tk.Frame(root, bg="#282c34")
 
 status_label = tk.Label(tracking_frame, textvariable=posture_status, font=("Arial", 14), fg="white", bg="#282c34")
