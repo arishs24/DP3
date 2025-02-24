@@ -76,19 +76,14 @@ def submit_user_info():
         return
 
     strength_label.config(text=f"💪 Estimated Max Bicep Curl: {user_strength} lbs")
-    
+
     # Move to calibration
     user_frame.pack_forget()
     tracking_frame.pack()
-    calibrate_sensor()
+    threading.Thread(target=calibrate_sensor, daemon=True).start()
 
 
 def calibrate_sensor():
-    """Runs calibration in a separate thread to prevent UI freeze."""
-    threading.Thread(target=run_calibration, daemon=True).start()
-
-
-def run_calibration():
     """Captures sensor baseline and completes calibration."""
     global calibrated_x, calibrated_y, calibrated_z
 
