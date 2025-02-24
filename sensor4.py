@@ -35,7 +35,7 @@ user_name, user_age, user_weight, user_gender, activity_level = "", 0, 0, "", ""
 posture_status = None
 
 
-### **✅ Fix: Ensure All Functions Are Defined First**
+### **✅ Ensure All Functions Are Defined First**
 def stop_tracking():
     """Stops tracking and resets servo & motor."""
     global is_tracking
@@ -51,7 +51,7 @@ def estimate_max_bicep_curl():
         weight = int(weight_entry.get())
         age = int(age_entry.get())
         gender = gender_var.get()
-        activity = activity_var.get()  # ✅ FIXED: activity_var is now properly defined
+        activity = activity_var.get()
 
         # **Base Strength Calculation**
         if gender == "Male":
@@ -84,7 +84,7 @@ def submit_user_info():
     user_age = age_entry.get()
     user_weight = weight_entry.get()
     user_gender = gender_var.get()
-    activity_level = activity_var.get()  # ✅ FIXED: Corrected the syntax
+    activity_level = activity_var.get()
 
     if not all([user_name, user_age, user_weight, user_gender, activity_level]):
         status_label.config(text="⚠️ Please fill out all fields!", fg="red")
@@ -182,6 +182,10 @@ activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
 activity_menu.pack()
 
 tk.Button(user_frame, text="✅ Submit & Calibrate", command=submit_user_info).pack(pady=10)
+
+# ✅ FIXED: Ensure `strength_label` is defined before using it
+strength_label = tk.Label(user_frame, text="💪 Estimated Max Bicep Curl: N/A", fg="white", bg="#282c34")
+strength_label.pack()
 
 # **Tracking Page**
 tracking_frame = tk.Frame(root, bg="#282c34")
