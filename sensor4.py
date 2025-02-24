@@ -36,7 +36,8 @@ activity_level = ""
 posture_status = None
 
 
-### **✅ FIXED: Define stop_tracking() BEFORE the GUI uses it**
+### **✅ Fix: Define All Functions Before They're Used**
+
 def stop_tracking():
     """Stops tracking and resets servo & motor."""
     global is_tracking
@@ -46,7 +47,6 @@ def stop_tracking():
     root.after(0, lambda: posture_status.set("🛑 Tracking Stopped"))
 
 
-### **✅ FIXED: Define estimate_max_bicep_curl() BEFORE calling it**
 def estimate_max_bicep_curl():
     """Estimates max bicep curl weight based on user input."""
     try:
@@ -78,7 +78,6 @@ def estimate_max_bicep_curl():
         return 0  # Default value if input is invalid
 
 
-### **✅ FIXED: Ensure This Function is Defined AFTER `estimate_max_bicep_curl()`**
 def submit_user_info():
     """Saves user info and starts calibration."""
     global user_name, user_age, user_weight, user_gender, activity_level, user_strength
@@ -93,7 +92,7 @@ def submit_user_info():
         status_label.config(text="⚠️ Please fill out all fields!", fg="red")
         return
 
-    user_strength = estimate_max_bicep_curl()  # ✅ Now properly defined before use
+    user_strength = estimate_max_bicep_curl()
     if user_strength == 0:
         status_label.config(text="⚠️ Invalid Input!", fg="red")
         return
@@ -104,6 +103,82 @@ def submit_user_info():
     user_frame.pack_forget()
     tracking_frame.pack()
     threading.Thread(target=calibrate_sensor, daemon=True).start()
+
+
+def calibrate_sensor():
+    """Captures sensor baseline and completes calibration."""
+    global calibrated_x, calibrated_y, calibrated_z
+
+    root.after(0, lambda: posture_status.set("📏 Calibrating... Hold still!"))
+    time.sleep(1)  # Pause before starting
+
+    x_list, y_list, z_list = [], [], []
+
+    for _ in range(10):  # Collect stable baseline data
+        angles = sensor.euler_angles()
+
+        if angles is None or len(angles) < 3:
+            continue  # Skip bad readings
+
+        x_list.append(angles[0])
+        y_list.append(angles[1])
+        z_list.append(angles[2])
+        time.sleep(0.5)
+
+    if not x_list or not y_list or not z_list:
+        root.after(0, lambda: posture_status.set("❌ Calibration Failed: Check Sensor!"))
+        return
+
+    # Compute stable average values as the reference
+    calibrated_x = sum(x_list) / len(x_list)
+    calibrated_y = sum(y_list) / len(y_list)
+    calibrated_z = sum(z_list) / len(z_list)
+
+    root.after(0, lambda: posture_status.set("✅ Calibration Complete! Starting Tracking..."))
+    start_tracking()  # Auto-start tracking after calibration
+
+
+def start_tracking():
+    """Starts tracking in a separate thread."""
+    global is_tracking
+    is_tracking = True
+    threading.Thread(target=tracking_loop, daemon=True).start()
+
+
+def tracking_loop():
+    """Tracks sensor values and adjusts motor resistance in real-time using ML."""
+    global is_tracking
+
+    while is_tracking:
+        try:
+            angles = sensor.euler_angles()
+            if angles is None or len(angles) < 3:
+                continue  # Skip bad readings
+
+            adj_y = angles[1] - calibrated_y
+
+            if -10 < adj_y < 10:
+                root.after(0, lambda: posture_status.set("✅ Good Posture"))
+                resistance = user_strength / 50
+            else:
+                root.after(0, lambda: posture_status.set("🚨 Bad Posture - Adjusting Resistance!"))
+                resistance = (user_strength / 50) * 1.2  # Increase resistance for correction
+
+            resistance = max(0, min(1, resistance))  # Ensure motor speed is between 0 and 1
+            motor.forward(resistance)
+
+            # Adjust servo position
+            if -10 < adj_y < 10:
+                servo.mid()
+            elif adj_y < -10:
+                servo.min()
+            else:
+                servo.max()
+
+        except Exception as e:
+            print(f"⚠️ Sensor Read Error: {e}")
+
+        time.sleep(0.5)
 
 
 # ✅ GUI SETUP
@@ -138,11 +213,6 @@ gender_var = tk.StringVar(value="Male")
 gender_menu = tk.OptionMenu(user_frame, gender_var, "Male", "Female")
 gender_menu.pack()
 
-tk.Label(user_frame, text="Activity Level:", fg="white", bg="#282c34").pack()
-activity_var = tk.StringVar(value="Medium")
-activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
-activity_menu.pack()
-
 tk.Button(user_frame, text="✅ Submit & Calibrate", command=submit_user_info).pack(pady=10)
 strength_label = tk.Label(user_frame, text="💪 Estimated Max Bicep Curl: N/A", fg="white", bg="#282c34")
 strength_label.pack()
@@ -153,6 +223,6 @@ tracking_frame = tk.Frame(root, bg="#282c34")
 status_label = tk.Label(tracking_frame, textvariable=posture_status, font=("Arial", 14), fg="white", bg="#282c34")
 status_label.pack(pady=5)
 
-tk.Button(tracking_frame, text="⏹ Stop Tracking", command=stop_tracking).pack(pady=5)  # ✅ Now stop_tracking is defined
+tk.Button(tracking_frame, text="⏹ Stop Tracking", command=stop_tracking).pack(pady=5)
 
 root.mainloop()
