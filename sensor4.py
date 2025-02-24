@@ -1,15 +1,12 @@
 import time
 import threading
 import tkinter as tk
-from tkinter import filedialog, scrolledtext
-import fitz  # PyMuPDF for PDF handling
-import matplotlib.pyplot as plt
 from gpiozero import Servo, LED, Motor
 from sensor_library import *  # Your existing sensor module
 
 # 🔹 GPIO Setup
 red_led = LED(6)  # Alert LED
-servo = Servo(8)  # Servo for adjustments
+servo = Servo(8)  # Servo for adjustments (Ensure GPIO 8 is correct)
 motor = Motor(forward=17, backward=27)  # Motor for resistance
 
 # 🔹 Initialize Sensor
@@ -142,6 +139,14 @@ def tracking_loop():
             # Apply resistance to motor
             motor.forward(resistance)
 
+            # **Servo Adjustment for Additional Support**
+            if -10 < adj_y < 10:
+                servo.mid()  # Neutral position
+            elif adj_y < -10:
+                servo.min()  # Adjust resistance for lower posture
+            else:
+                servo.max()  # Adjust for overextension
+
         except Exception as e:
             print(f"⚠️ Sensor Read Error: {e}")
 
@@ -160,6 +165,7 @@ def stop_tracking():
     global is_tracking
     is_tracking = False
     motor.stop()
+    servo.mid()  # Reset servo position
 
 
 # GUI Setup
