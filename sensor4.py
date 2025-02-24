@@ -1,10 +1,12 @@
 import time
 import threading
 import tkinter as tk
-from gpiozero import Servo, LED, Motor
-from sensor_library import *  # Your existing sensor module
+from tkinter import filedialog, scrolledtext
+import fitz  # PyMuPDF for PDF handling
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from gpiozero import Servo, LED, Motor
+from sensor_library import *  # Your existing sensor module
 
 # 🔹 GPIO Setup
 red_led = LED(6)  # Alert LED
@@ -21,6 +23,9 @@ user_weight = 0
 user_gender = ""
 injury_type = ""
 severity_level = ""
+activity_level = ""
+rehab_goal = ""
+pdf_file_path = ""
 
 # Live Graph Data
 x_vals, y_vals = [], []  # Stores time & Y angle values for live graph
@@ -33,13 +38,40 @@ def rolling_average(x_list, y_list, z_list):
     return sum(x_list) / len(x_list), sum(y_list) / len(y_list), sum(z_list) / len(z_list)
 
 
+def upload_pdf():
+    """Allows user to upload a PDF (MRI report) and displays its text."""
+    global pdf_file_path
+    file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
+    if file_path:
+        pdf_file_path = file_path
+        pdf_label.config(text=f"📂 PDF Uploaded: {file_path.split('/')[-1]}")
+        display_pdf_text(file_path)
+
+
+def display_pdf_text(file_path):
+    """Extracts and displays text from a PDF report."""
+    try:
+        doc = fitz.open(file_path)
+        text = "\n".join([page.get_text() for page in doc])
+
+        # Show PDF text inside the UI
+        pdf_text_box.config(state=tk.NORMAL)
+        pdf_text_box.delete(1.0, tk.END)  # Clear previous text
+        pdf_text_box.insert(tk.END, text)
+        pdf_text_box.config(state=tk.DISABLED)  # Make read-only
+
+    except Exception as e:
+        pdf_label.config(text=f"⚠️ Error: {e}", fg="red")
+
+
 def estimate_max_bicep_curl():
-    """Estimates max bicep curl weight based on user age, weight, and gender."""
-    global user_age, user_weight, user_gender
+    """Estimates max bicep curl weight based on user age, weight, gender, and activity level."""
+    global user_age, user_weight, user_gender, activity_level
     try:
         age = int(user_age)
         weight = int(user_weight)
 
+        # Base strength estimate
         if user_gender == "Male":
             base_strength = 0.5 * weight  # Males generally curl ~50% of body weight
         else:
@@ -51,6 +83,12 @@ def estimate_max_bicep_curl():
         elif age < 18:
             base_strength *= 0.9  # Reduce by 10% for younger users
 
+        # Adjust for activity level
+        if activity_level == "Low":
+            base_strength *= 0.8  # Reduce by 20% for inactive users
+        elif activity_level == "High":
+            base_strength *= 1.2  # Increase by 20% for very active users
+
         return round(base_strength, 1)
 
     except ValueError:
@@ -59,15 +97,17 @@ def estimate_max_bicep_curl():
 
 def submit_user_info():
     """Saves user info and moves to calibration screen."""
-    global user_name, user_age, user_weight, user_gender, injury_type, severity_level
+    global user_name, user_age, user_weight, user_gender, injury_type, severity_level, activity_level, rehab_goal
     user_name = name_entry.get()
     user_age = age_entry.get()
     user_weight = weight_entry.get()
     user_gender = gender_var.get()
     injury_type = injury_entry.get()
     severity_level = severity_var.get()
+    activity_level = activity_var.get()
+    rehab_goal = rehab_goal_entry.get()
 
-    if not user_name or not user_age or not user_weight or not user_gender or not injury_type or not severity_level:
+    if not all([user_name, user_age, user_weight, user_gender, injury_type, severity_level, activity_level, rehab_goal]):
         status_label.config(text="⚠️ Please complete all fields!", fg="red")
         return
 
@@ -82,109 +122,17 @@ def submit_user_info():
     tracking_frame.pack()
 
 
-def calibrate_sensor():
-    """Captures initial sensor values as the neutral reference."""
-    global calibrated_x, calibrated_y, calibrated_z, posture_status
-
-    posture_status = "📏 Calibrating... Hold still!"
-    update_ui()
-
-    x_list, y_list, z_list = [], [], []
-
-    for _ in range(10):  # Collect data for calibration
-        angles = sensor.euler_angles()
-        x_list.append(angles[0])
-        y_list.append(angles[1])
-        z_list.append(angles[2])
-        time.sleep(0.5)
-
-    calibrated_x = sum(x_list) / len(x_list)
-    calibrated_y = sum(y_list) / len(y_list)
-    calibrated_z = sum(z_list) / len(z_list)
-
-    posture_status = "✅ Calibration Complete! Starting..."
-    update_ui()
-    time.sleep(1)
-
-
-def update_ui():
-    """Updates the GUI labels with the latest sensor data."""
-    status_label.config(text=posture_status)
-    angles_label.config(text=angles_text)
-    root.update_idletasks()
-
-
-def tracking_loop():
-    """Runs posture tracking & adjusts motor resistance dynamically."""
-    global posture_status, angles_text, is_tracking
-    x_list, y_list, z_list = [], [], []
-
-    estimated_strength = estimate_max_bicep_curl()
-    if isinstance(estimated_strength, str):
-        return  # Don't start tracking if strength estimation failed
-
-    while is_tracking:
-        try:
-            angles = sensor.euler_angles()
-            raw_x, raw_y, raw_z = angles
-
-            adj_x = raw_x - calibrated_x
-            adj_y = raw_y - calibrated_y
-            adj_z = raw_z - calibrated_z
-
-            x_list.append(adj_x)
-            y_list.append(adj_y)
-            z_list.append(adj_z)
-
-            if len(x_list) > 10:
-                x_list.pop(0)
-                y_list.pop(0)
-                z_list.pop(0)
-
-            avg_x, avg_y, avg_z = rolling_average(x_list, y_list, z_list)
-
-            x_vals.append(time.time())  # Time for graph
-            y_vals.append(avg_y)
-
-            angles_text = f"X: {avg_x:.2f}, Y: {avg_y:.2f}, Z: {avg_z:.2f}"
-            posture_status = "✅ Good Posture" if -10 < avg_y < 10 else "🚨 Bad Posture"
-
-            # Adjust motor resistance based on estimated strength
-            resistance = estimated_strength / 50  # Scale between 0 and 1
-            motor.forward(resistance)
-
-            update_ui()
-
-        except Exception as e:
-            print(f"⚠️ Sensor Read Error: {e}")
-
-        time.sleep(0.5)
-
-
-def start_tracking():
-    """Starts tracking in a separate thread."""
-    global is_tracking
-    is_tracking = True
-    threading.Thread(target=tracking_loop, daemon=True).start()
-
-
-def stop_tracking():
-    """Stops tracking."""
-    global is_tracking
-    is_tracking = False
-
-
 # GUI Setup
 root = tk.Tk()
 root.title("Smart Rehab Band UI")
-root.geometry("500x400")
+root.geometry("600x500")
 root.config(bg="#282c34")
 
 # User Info Page
 user_frame = tk.Frame(root, bg="#282c34")
 user_frame.pack()
 
-tk.Label(user_frame, text="📝 User Information", font=("Arial", 16), fg="white", bg="#282c34").pack()
+tk.Label(user_frame, text="📝 Patient Information", font=("Arial", 16), fg="white", bg="#282c34").pack()
 
 tk.Label(user_frame, text="Name:", fg="white", bg="#282c34").pack()
 name_entry = tk.Entry(user_frame)
@@ -214,9 +162,28 @@ severity_var.set("Mild")
 severity_menu = tk.OptionMenu(user_frame, severity_var, "Mild", "Moderate", "Severe")
 severity_menu.pack()
 
+tk.Label(user_frame, text="Activity Level:", fg="white", bg="#282c34").pack()
+activity_var = tk.StringVar()
+activity_var.set("Medium")
+activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
+activity_menu.pack()
+
+tk.Label(user_frame, text="Rehab Goal:", fg="white", bg="#282c34").pack()
+rehab_goal_entry = tk.Entry(user_frame)
+rehab_goal_entry.pack()
+
 tk.Button(user_frame, text="✅ Submit & Start Calibration", command=submit_user_info).pack(pady=10)
 strength_label = tk.Label(user_frame, text="", fg="white", bg="#282c34")
 strength_label.pack()
+
+# PDF Upload (MRI Report)
+pdf_label = tk.Label(user_frame, text="No PDF Uploaded", fg="white", bg="#282c34")
+pdf_label.pack()
+tk.Button(user_frame, text="📂 Upload MRI Report (PDF)", command=upload_pdf).pack()
+
+# PDF Text Display Box
+pdf_text_box = scrolledtext.ScrolledText(user_frame, wrap=tk.WORD, width=60, height=6, state=tk.DISABLED)
+pdf_text_box.pack(pady=5)
 
 # Tracking Page
 tracking_frame = tk.Frame(root, bg="#282c34")
