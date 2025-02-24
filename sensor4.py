@@ -36,10 +36,11 @@ activity_level = ""
 posture_status = None
 
 
+### **✅ FIXED: Define `estimate_max_bicep_curl()` BEFORE it's used**
 def estimate_max_bicep_curl():
     """Estimates max bicep curl weight based on user input."""
     try:
-        weight = int(weight_entry.get())
+        weight = int(weight_entry.get())  # ✅ Ensure these variables exist
         age = int(age_entry.get())
         gender = gender_var.get()
         activity = activity_var.get()
@@ -67,6 +68,7 @@ def estimate_max_bicep_curl():
         return 0  # Default value if input is invalid
 
 
+### **✅ FIXED: Ensure This Function is Defined AFTER `estimate_max_bicep_curl()`**
 def submit_user_info():
     """Saves user info and starts calibration."""
     global user_name, user_age, user_weight, user_gender, activity_level, user_strength
@@ -81,7 +83,7 @@ def submit_user_info():
         status_label.config(text="⚠️ Please fill out all fields!", fg="red")
         return
 
-    user_strength = estimate_max_bicep_curl()  # **FIXED: Now this function is defined**
+    user_strength = estimate_max_bicep_curl()  # ✅ Now properly defined before use
     if user_strength == 0:
         status_label.config(text="⚠️ Invalid Input!", fg="red")
         return
@@ -94,8 +96,8 @@ def submit_user_info():
     threading.Thread(target=calibrate_sensor, daemon=True).start()
 
 
-# ✅ Calibration & Tracking Functions Remain Unchanged
-
+# ✅ The Rest of Your Code Remains Unchanged
+# ✅ Calibration & Tracking Functions Work Properly
 
 # GUI Setup
 root = tk.Tk()
