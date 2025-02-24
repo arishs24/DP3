@@ -10,8 +10,8 @@ from sensor_library import *  # Your existing sensor module
 
 # 🔹 GPIO Setup
 red_led = LED(6)  # Alert LED
-servo = Servo(8)  # Servo motor for adjustments
-motor = Motor(forward=17, backward=27)  # Main motor for resistance
+servo = Servo(8)  # Servo for adjustments
+motor = Motor(forward=17, backward=27)  # Motor for resistance
 
 # 🔹 Initialize Sensor
 sensor = Orientation_Sensor()
@@ -33,19 +33,33 @@ def rolling_average(x_list, y_list, z_list):
 
 
 def calibrate_sensor():
-    """Calibrates the sensor by capturing a stable baseline."""
+    """Runs calibration in a separate thread to prevent UI freeze."""
+    threading.Thread(target=run_calibration, daemon=True).start()
+
+
+def run_calibration():
+    """Captures sensor baseline and completes calibration."""
     global calibrated_x, calibrated_y, calibrated_z
 
     posture_status.set("📏 Calibrating... Hold still!")
+    time.sleep(1)  # Pause before starting
 
     x_list, y_list, z_list = [], [], []
 
     for _ in range(10):  # Collect stable baseline data
         angles = sensor.euler_angles()
+
+        if angles is None or len(angles) < 3:
+            continue  # Skip bad readings
+
         x_list.append(angles[0])
         y_list.append(angles[1])
         z_list.append(angles[2])
         time.sleep(0.5)
+
+    if not x_list or not y_list or not z_list:
+        posture_status.set("❌ Calibration Failed: Check Sensor!")
+        return
 
     # Compute stable average values as the reference
     calibrated_x = sum(x_list) / len(x_list)
@@ -53,6 +67,7 @@ def calibrate_sensor():
     calibrated_z = sum(z_list) / len(z_list)
 
     posture_status.set("✅ Calibration Complete! Starting Tracking...")
+    start_tracking()  # Auto-start tracking after calibration
 
 
 def estimate_max_bicep_curl():
@@ -98,6 +113,9 @@ def tracking_loop():
     while is_tracking:
         try:
             angles = sensor.euler_angles()
+            if angles is None or len(angles) < 3:
+                continue  # Skip bad readings
+
             adj_x = angles[0] - calibrated_x
             adj_y = angles[1] - calibrated_y
             adj_z = angles[2] - calibrated_z
@@ -190,9 +208,7 @@ activity_var = tk.StringVar(value="Medium")
 activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
 activity_menu.pack()
 
-tk.Button(user_frame, text="✅ Submit & Calibrate", command=lambda: [calibrate_sensor(), start_tracking()]).pack(pady=10)
-strength_label = tk.Label(user_frame, text="💪 Strength: N/A", fg="white", bg="#282c34")
-strength_label.pack()
+tk.Button(user_frame, text="✅ Submit & Calibrate", command=calibrate_sensor).pack(pady=10)
 
 # PDF Upload (MRI Report)
 pdf_label = tk.Label(user_frame, text="No PDF Uploaded", fg="white", bg="#282c34")
