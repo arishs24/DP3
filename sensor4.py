@@ -223,21 +223,7 @@ posture_status.set("Waiting...")
 user_frame = tk.Frame(root, bg="#282c34")
 user_frame.pack()
 
-tk.Label(user_frame, text="📝 Patient Information", font=("Arial", 16), fg="white", bg="#282c34").pack()
-
-tk.Label(user_frame, text="Name:", fg="white", bg="#282c34").pack()
-name_entry = tk.Entry(user_frame)
-name_entry.pack()
-
-tk.Label(user_frame, text="Age:", fg="white", bg="#282c34").pack()
-age_entry = tk.Entry(user_frame)
-age_entry.pack()
-
-tk.Label(user_frame, text="Weight (lbs):", fg="white", bg="#282c34").pack()
-weight_entry = tk.Entry(user_frame)
-weight_entry.pack()
-
-activity_var = tk.StringVar(value="Medium")
+activity_var = tk.StringVar(value="Medium")  # **🔥 FIXED - activity_var is now correctly defined!**
 tk.Label(user_frame, text="Activity Level:", fg="white", bg="#282c34").pack()
 activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
 activity_menu.pack()
