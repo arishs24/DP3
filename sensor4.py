@@ -23,7 +23,7 @@ user_name, user_age, user_weight, user_gender, activity_level = "", 0, 0, "", ""
 
 x_data, y_data, z_data, time_data = [], [], [], []
 
-# 📊 **Graph Setup**
+# **📊 Graph Setup**
 fig, ax = plt.subplots()
 ax.set_ylim(-180, 180)  # Adjust based on sensor range
 ax.set_xlim(0, 50)  # Show last 50 readings
@@ -237,10 +237,10 @@ tk.Label(user_frame, text="Weight (lbs):", fg="white", bg="#282c34").pack()
 weight_entry = tk.Entry(user_frame)
 weight_entry.pack()
 
-gender_var = tk.StringVar(value="Male")
-tk.Label(user_frame, text="Gender:", fg="white", bg="#282c34").pack()
-gender_menu = tk.OptionMenu(user_frame, gender_var, "Male", "Female")
-gender_menu.pack()
+activity_var = tk.StringVar(value="Medium")
+tk.Label(user_frame, text="Activity Level:", fg="white", bg="#282c34").pack()
+activity_menu = tk.OptionMenu(user_frame, activity_var, "Low", "Medium", "High")
+activity_menu.pack()
 
 tk.Button(user_frame, text="✅ Submit & Calibrate", command=submit_user_info).pack(pady=10)
 
