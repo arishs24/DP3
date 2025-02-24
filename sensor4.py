@@ -36,7 +36,39 @@ activity_level = ""
 posture_status = None
 
 
-### **✅ Fix: Define All Functions Before They're Used**
+### **✅ Fix: Ensure All Functions Are Defined First**
+def calibrate_sensor():
+    """Captures sensor baseline and completes calibration."""
+    global calibrated_x, calibrated_y, calibrated_z
+
+    root.after(0, lambda: posture_status.set("📏 Calibrating... Hold still!"))
+    time.sleep(1)  # Pause before starting
+
+    x_list, y_list, z_list = [], [], []
+
+    for _ in range(10):  # Collect stable baseline data
+        angles = sensor.euler_angles()
+
+        if angles is None or len(angles) < 3:
+            continue  # Skip bad readings
+
+        x_list.append(angles[0])
+        y_list.append(angles[1])
+        z_list.append(angles[2])
+        time.sleep(0.5)
+
+    if not x_list or not y_list or not z_list:
+        root.after(0, lambda: posture_status.set("❌ Calibration Failed: Check Sensor!"))
+        return
+
+    # Compute stable average values as the reference
+    calibrated_x = sum(x_list) / len(x_list)
+    calibrated_y = sum(y_list) / len(y_list)
+    calibrated_z = sum(z_list) / len(z_list)
+
+    root.after(0, lambda: posture_status.set("✅ Calibration Complete! Starting Tracking..."))
+    start_tracking()  # Auto-start tracking after calibration
+
 
 def stop_tracking():
     """Stops tracking and resets servo & motor."""
@@ -103,39 +135,6 @@ def submit_user_info():
     user_frame.pack_forget()
     tracking_frame.pack()
     threading.Thread(target=calibrate_sensor, daemon=True).start()
-
-
-def calibrate_sensor():
-    """Captures sensor baseline and completes calibration."""
-    global calibrated_x, calibrated_y, calibrated_z
-
-    root.after(0, lambda: posture_status.set("📏 Calibrating... Hold still!"))
-    time.sleep(1)  # Pause before starting
-
-    x_list, y_list, z_list = [], [], []
-
-    for _ in range(10):  # Collect stable baseline data
-        angles = sensor.euler_angles()
-
-        if angles is None or len(angles) < 3:
-            continue  # Skip bad readings
-
-        x_list.append(angles[0])
-        y_list.append(angles[1])
-        z_list.append(angles[2])
-        time.sleep(0.5)
-
-    if not x_list or not y_list or not z_list:
-        root.after(0, lambda: posture_status.set("❌ Calibration Failed: Check Sensor!"))
-        return
-
-    # Compute stable average values as the reference
-    calibrated_x = sum(x_list) / len(x_list)
-    calibrated_y = sum(y_list) / len(y_list)
-    calibrated_z = sum(z_list) / len(z_list)
-
-    root.after(0, lambda: posture_status.set("✅ Calibration Complete! Starting Tracking..."))
-    start_tracking()  # Auto-start tracking after calibration
 
 
 def start_tracking():
