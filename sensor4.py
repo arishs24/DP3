@@ -36,11 +36,21 @@ activity_level = ""
 posture_status = None
 
 
-### **✅ FIXED: Define `estimate_max_bicep_curl()` BEFORE it's used**
+### **✅ FIXED: Define stop_tracking() BEFORE the GUI uses it**
+def stop_tracking():
+    """Stops tracking and resets servo & motor."""
+    global is_tracking
+    is_tracking = False
+    motor.stop()
+    servo.mid()
+    root.after(0, lambda: posture_status.set("🛑 Tracking Stopped"))
+
+
+### **✅ FIXED: Define estimate_max_bicep_curl() BEFORE calling it**
 def estimate_max_bicep_curl():
     """Estimates max bicep curl weight based on user input."""
     try:
-        weight = int(weight_entry.get())  # ✅ Ensure these variables exist
+        weight = int(weight_entry.get())
         age = int(age_entry.get())
         gender = gender_var.get()
         activity = activity_var.get()
@@ -96,10 +106,7 @@ def submit_user_info():
     threading.Thread(target=calibrate_sensor, daemon=True).start()
 
 
-# ✅ The Rest of Your Code Remains Unchanged
-# ✅ Calibration & Tracking Functions Work Properly
-
-# GUI Setup
+# ✅ GUI SETUP
 root = tk.Tk()
 root.title("Smart Rehab Band UI")
 root.geometry("600x500")
@@ -146,6 +153,6 @@ tracking_frame = tk.Frame(root, bg="#282c34")
 status_label = tk.Label(tracking_frame, textvariable=posture_status, font=("Arial", 14), fg="white", bg="#282c34")
 status_label.pack(pady=5)
 
-tk.Button(tracking_frame, text="⏹ Stop Tracking", command=stop_tracking).pack(pady=5)
+tk.Button(tracking_frame, text="⏹ Stop Tracking", command=stop_tracking).pack(pady=5)  # ✅ Now stop_tracking is defined
 
 root.mainloop()
