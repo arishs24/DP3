@@ -36,6 +36,42 @@ posture_status = None
 
 
 ### **✅ Ensure All Functions Are Defined First**
+def tracking_loop():
+    """Tracks sensor values and adjusts motor resistance in real-time using ML."""
+    global is_tracking
+
+    while is_tracking:
+        try:
+            angles = sensor.euler_angles()
+            if angles is None or len(angles) < 3:
+                continue  # Skip bad readings
+
+            adj_y = angles[1] - calibrated_y
+
+            if -10 < adj_y < 10:
+                root.after(0, lambda: posture_status.set("✅ Good Posture"))
+                resistance = user_strength / 50
+            else:
+                root.after(0, lambda: posture_status.set("🚨 Bad Posture - Adjusting Resistance!"))
+                resistance = (user_strength / 50) * 1.2  # Increase resistance for correction
+
+            resistance = max(0, min(1, resistance))  # Ensure motor speed is between 0 and 1
+            motor.forward(resistance)
+
+            # Adjust servo position
+            if -10 < adj_y < 10:
+                servo.mid()
+            elif adj_y < -10:
+                servo.min()
+            else:
+                servo.max()
+
+        except Exception as e:
+            print(f"⚠️ Sensor Read Error: {e}")
+
+        time.sleep(0.5)
+
+
 def stop_tracking():
     """Stops tracking and resets servo & motor."""
     global is_tracking
@@ -141,42 +177,6 @@ def start_tracking():
     global is_tracking
     is_tracking = True
     threading.Thread(target=tracking_loop, daemon=True).start()
-
-
-def tracking_loop():
-    """Tracks sensor values and adjusts motor resistance in real-time using ML."""
-    global is_tracking
-
-    while is_tracking:
-        try:
-            angles = sensor.euler_angles()
-            if angles is None or len(angles) < 3:
-                continue  # Skip bad readings
-
-            adj_y = angles[1] - calibrated_y
-
-            if -10 < adj_y < 10:
-                root.after(0, lambda: posture_status.set("✅ Good Posture"))
-                resistance = user_strength / 50
-            else:
-                root.after(0, lambda: posture_status.set("🚨 Bad Posture - Adjusting Resistance!"))
-                resistance = (user_strength / 50) * 1.2  # Increase resistance for correction
-
-            resistance = max(0, min(1, resistance))  # Ensure motor speed is between 0 and 1
-            motor.forward(resistance)
-
-            # Adjust servo position
-            if -10 < adj_y < 10:
-                servo.mid()
-            elif adj_y < -10:
-                servo.min()
-            else:
-                servo.max()
-
-        except Exception as e:
-            print(f"⚠️ Sensor Read Error: {e}")
-
-        time.sleep(0.5)
 
 
 # ✅ GUI SETUP
